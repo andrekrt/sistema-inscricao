@@ -1,0 +1,64 @@
+body {
+    background: #f4f6f9;
+}
+
+.topo {
+    background: linear-gradient(135deg, #111111 0%, #7a0d0d 100%);
+    color: #fff;
+}
+
+.card-principal,
+.card-categoria,
+.accordion-item,
+.card-resumo {
+    border: 0;
+    border-radius: 18px !important;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.08);
+}
+
+.card-categoria {
+    margin-bottom: 1rem;
+}
+
+.categoria-header {
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    border-top-left-radius: 18px;
+    border-top-right-radius: 18px;
+}
+
+.atleta-item {
+    border: 1px solid #dee2e6;
+    border-radius: 14px;
+    padding: 16px;
+    background: #fafafa;
+}
+
+.accordion-button {
+    font-weight: 700;
+    border-radius: 18px !important;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: #fff5f5;
+    color: #7a0d0d;
+    box-shadow: none;
+}
+
+.badge-tipo {
+    font-size: .75rem;
+}
+
+.contador-atletas {
+    font-size: .85rem;
+}
+
+.sticky-resumo {
+    position: sticky;
+    top: 20px;
+}
+
+.resumo-vazio {
+    color: #6c757d;
+    font-style: italic;
+}
