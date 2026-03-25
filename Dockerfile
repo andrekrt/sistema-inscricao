@@ -21,7 +21,7 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY . /app
 
-RUN composer install --no-dev --optimize-autoloader --no-interaction || true
+RUN composer install --no-dev --optimize-autoloader --no-interaction
 RUN if [ -f package.json ]; then npm install && npm run build; fi
 
 EXPOSE 80
