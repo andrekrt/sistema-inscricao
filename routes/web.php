@@ -35,8 +35,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/inscricoes',[InscricaoAdminController::class, 'index'])->name('inscricoes.index');
     Route::get('/inscricoes/{inscricao}', [InscricaoAdminController::class, 'show'])->name('inscricoes.show');
     Route::patch('/inscricoes/{inscricao}', [InscricaoAdminController::class, 'updateStatus'])->name('inscricoes.updateStatus');
-    Route::get('/inscricoes-exportar', [InscricaoAdminController::class, 'export'])
-    ->name('inscricoes.export');
+    Route::get('/inscricoes-exportar', [InscricaoAdminController::class, 'export'])->name('inscricoes.export');
 });
 
 require __DIR__ . '/auth.php';
