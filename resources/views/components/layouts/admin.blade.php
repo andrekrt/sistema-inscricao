@@ -85,7 +85,7 @@
                 </nav>
             </aside>
 
-            <main class="col-md-9 col-lg-10">
+            <main class="col-md-9 col-lg-10 d-flex flex-column" style="min-height: 100vh;">
                 <div class="topbar px-4 py-3 d-flex justify-content-between align-items-center">
                     <div>
                         <h5 class="mb-0">{{ $pageTitle ?? 'Painel' }}</h5>
@@ -106,17 +106,19 @@
                     </div>
                 </div>
 
-                <div class="p-4">
-                    @if (session('success'))
-                        <div class="alert alert-success">{{ session('success') }}</div>
-                    @endif
-
-                    @if (session('error'))
-                        <div class="alert alert-danger">{{ session('error') }}</div>
-                    @endif
-
+                <div class="p-4 flex-grow-1">
                     {{ $slot }}
                 </div>
+
+                <footer class="text-center text-muted py-3 px-4 border-top bg-white mt-auto">
+                    <small>
+                        © {{ date('Y') }} | Copa Bacaba de Karatê-Dô Tradicional |
+                        Desenvolvido por
+                        <a href="https://innovakode.com.br" target="_blank" class="fw-semibold text-decoration-none">
+                            Innova Kode
+                        </a>
+                    </small>
+                </footer>
             </main>
         </div>
     </div>
