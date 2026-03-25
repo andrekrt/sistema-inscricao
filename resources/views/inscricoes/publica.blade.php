@@ -12,7 +12,7 @@
 <body class="d-flex flex-column min-vh-100">
     <div class="topo py-5 mb-4">
         <div class="container">
-            <h1 class="fw-bold mb-2">Inscrição Copa Bacaba de Karatê-Dô Tradicional</h1>
+            <h1 class="fw-bold mb-2">Inscrição I Copa Bacaba de Karatê-Dô Tradicional</h1>
             <p class="mb-0">Preencha os dados do dojo e inscreva os atletas em suas respectivas categorias.</p>
         </div>
     </div>

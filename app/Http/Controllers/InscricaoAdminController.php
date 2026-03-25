@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Exports\InscricoesPorCategoriaExport;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Storage;
 
 class InscricaoAdminController extends Controller
 {
@@ -59,5 +60,18 @@ class InscricaoAdminController extends Controller
             new InscricoesPorCategoriaExport(),
             'inscricoes-por-categoria.xlsx'
         );
+    }
+
+    public function destroy(Inscricao $inscricao)
+    {
+        if ($inscricao->comprovante && Storage::disk('public')->exists($inscricao->comprovante)) {
+            Storage::disk('public')->delete($inscricao->comprovante);
+        }
+
+        $inscricao->delete();
+
+        return redirect()
+            ->route('inscricoes.index')
+            ->with('success', 'Inscrição excluída com sucesso.');
     }
 }

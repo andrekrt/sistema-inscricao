@@ -12,7 +12,7 @@
                 </div>
             </div>
 
-            <a href="{{ route('inscricoes.export') }}" class="btn btn-success">
+            <a href="{{ route('inscricoes.export') }}" class="btn btn-success mb-5">
                 Exportar Excel
             </a>
 
@@ -53,17 +53,25 @@
                                 </td>
                                 <td>{{ $inscricao->created_at->format('d/m/Y H:i') }}</td>
                                 <td>
-                                    <a href="{{ route('inscricoes.show', $inscricao) }}" class="btn btn-sm btn-dark">
-                                        Detalhes
-                                    </a>
+                                    <div class="d-flex gap-2">
+                                        <a href="{{ route('inscricoes.show', $inscricao) }}"
+                                            class="btn btn-sm btn-dark">
+                                            Detalhes
+                                        </a>
+
+                                        <form method="POST" action="{{ route('inscricoes.destroy', $inscricao) }}"
+                                            class="form-excluir-inscricao">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="button" class="btn btn-sm btn-danger btn-excluir-inscricao">
+                                                Excluir
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
-                            <tr>
-                                <td colspan="7" class="text-center text-muted py-4">
-                                    Nenhuma inscrição recebida ainda.
-                                </td>
-                            </tr>
+
                         @endforelse
                     </tbody>
                 </table>
@@ -102,6 +110,31 @@
                     order: [
                         [5, 'desc']
                     ]
+                });
+            });
+        </script>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                document.querySelectorAll('.btn-excluir-inscricao').forEach(botao => {
+                    botao.addEventListener('click', function() {
+                        const form = this.closest('.form-excluir-inscricao');
+
+                        Swal.fire({
+                            title: 'Excluir inscrição?',
+                            text: 'Essa ação removerá a inscrição, os atletas vinculados e o comprovante, se existir.',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Sim, excluir',
+                            cancelButtonText: 'Cancelar',
+                            confirmButtonColor: '#dc3545',
+                            cancelButtonColor: '#6c757d'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                form.submit();
+                            }
+                        });
+                    });
                 });
             });
         </script>
