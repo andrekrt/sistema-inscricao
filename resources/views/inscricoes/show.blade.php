@@ -37,11 +37,33 @@
                     </div>
 
                     <div class="mb-3">
-                        <strong>Comprovante:</strong><br>
-                        <a href="{{ asset('storage/' . $inscricao->comprovante) }}" target="_blank"
-                            class="btn btn-sm btn-outline-dark mt-2">
-                            Ver comprovante
-                        </a>
+                        <strong>Comprovantes enviados:</strong><br>
+
+                        @if ($inscricao->comprovantes->count())
+                            <div class="mt-2 d-flex flex-column gap-2">
+                                @foreach ($inscricao->comprovantes as $index => $comprovante)
+                                    <div class="border rounded p-2">
+                                        <div class="small text-muted mb-1">
+                                            Comprovante {{ $index + 1 }} • enviado em
+                                            {{ $comprovante->created_at->format('d/m/Y H:i') }}
+                                        </div>
+
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                            <div class="small">
+                                                {{ $comprovante->nome_original ?: 'Arquivo sem nome' }}
+                                            </div>
+
+                                            <a href="{{ asset('storage/' . $comprovante->arquivo) }}" target="_blank"
+                                                class="btn btn-sm btn-outline-dark">
+                                                Ver arquivo
+                                            </a>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="text-muted mt-2">Nenhum comprovante enviado.</div>
+                        @endif
                     </div>
 
                     <hr>

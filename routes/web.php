@@ -18,7 +18,9 @@ Route::get('/', function () {
 // Rotas de inscrição
 Route::get('/inscricao', [InscricaoController::class, 'create'])->name('inscricao.create');
 Route::post('/inscricao', [InscricaoController::class, 'store'])->name('inscricao.store');
-Route::get('/inscricao/sucesso', [InscricaoController::class, 'success'])->name('inscricao.success');
+Route::get('/inscricao/sucesso/{id}/{token}', [InscricaoController::class, 'success'])->name('inscricao.success');
+Route::get('/inscricao/gerenciar/{id}/{token}', [InscricaoController::class, 'editByToken'])->name('inscricao.edit.token');
+Route::put('/inscricao/gerenciar/{id}/{token}', [InscricaoController::class, 'updateByToken'])->name('inscricao.update.token');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

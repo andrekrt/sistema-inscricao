@@ -23,6 +23,7 @@ class InscricaoAdminController extends Controller
     public function show(Inscricao $inscricao)
     {
         $inscricao->load([
+            'comprovantes',
             'atletas.categoria' => function ($query) {
                 $query->orderBy('idade_min')->orderBy('tipo');
             }
