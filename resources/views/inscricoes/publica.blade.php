@@ -26,13 +26,18 @@
             <div class="row g-4">
                 <div class="col-lg-8">
                     @include('inscricoes.partials.dados-dojo')
-                    @include('inscricoes.partials.accordion-idades')
+                    @include('inscricoes.partials.secoes-categorias')
                 </div>
 
                 <div class="col-lg-4">
                     @include('inscricoes.partials.resumo')
                 </div>
             </div>
+            {{-- <div class="mt-4 text-end">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    Finalizar inscrição
+                </button>
+            </div> --}}
         </form>
     </div>
 
@@ -51,6 +56,7 @@
     <script>
         window.inscricaoConfig = {
             categoriasOld: @json(old('categorias', [])),
+            equipesOld: @json(old('equipes', [])),
             faixas: @json($faixas),
         };
     </script>

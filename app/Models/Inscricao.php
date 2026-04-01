@@ -44,4 +44,9 @@ class Inscricao extends Model
             'token' => $this->token_edicao,
         ]);
     }
+
+    public function equipes()
+    {
+        return $this->hasMany(Equipe::class);
+    }
 }

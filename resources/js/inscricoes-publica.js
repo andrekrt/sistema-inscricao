@@ -166,18 +166,21 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    if (window.inscricaoConfig && window.inscricaoConfig.categoriasOld) {
-        Object.keys(window.inscricaoConfig.categoriasOld).forEach(
-            (categoriaId) => {
-                const categoria =
-                    window.inscricaoConfig.categoriasOld[categoriaId];
-                const atletas = categoria.atletas || [];
+    if (window.inscricaoConfig) {
+        if (window.inscricaoConfig.categoriasOld) {
+            Object.keys(window.inscricaoConfig.categoriasOld).forEach(
+                (categoriaId) => {
+                    const categoria =
+                        window.inscricaoConfig.categoriasOld[categoriaId];
+                    const atletas = categoria.atletas || [];
 
-                atletas.forEach((atleta) => {
-                    adicionarAtletaNaCategoria(categoriaId, atleta);
-                });
-            },
-        );
+                    atletas.forEach((atleta) => {
+                        adicionarAtletaNaCategoria(categoriaId, atleta);
+                    });
+                },
+            );
+        }
+
     } else {
         atualizarResumo();
     }

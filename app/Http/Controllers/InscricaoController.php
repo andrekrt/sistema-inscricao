@@ -15,6 +15,7 @@ use App\Notifications\InscricaoRealizadaNotification;
 use App\Services\N8nWebhookService;
 use App\Support\EmailNotifiable;
 use Illuminate\Support\Facades\Notification;
+use App\Models\Equipe;
 
 class InscricaoController extends Controller
 {
@@ -41,29 +42,40 @@ class InscricaoController extends Controller
     public function create()
     {
         $categorias = Categoria::where('ativo', true)
+            ->orderBy('tipo_disputa')
             ->orderBy('idade_min')
             ->orderBy('idade_max')
             ->orderBy('tipo')
             ->orderBy('sexo')
             ->get();
 
-        $categoriasAgrupadas = $categorias->groupBy(function ($categoria) {
-            return $categoria->idade_min . '-' . $categoria->idade_max;
-        })->map(function ($grupo) {
-            $primeira = $grupo->first();
+        $categoriasIndividuais = $categorias
+            ->where('tipo_disputa', 'individual');
 
-            return [
-                'label' => $this->formatarFaixaEtaria($primeira->idade_min, $primeira->idade_max),
-                'categorias' => $grupo->sortBy([
-                    ['tipo', 'asc'],
-                    ['sexo', 'asc'],
-                    ['faixa_inicial', 'asc'],
-                ])->values(),
-            ];
-        });
+        $categoriasEquipe = $categorias
+            ->where('tipo_disputa', 'equipe')
+            ->values();
+
+        $categoriasIndividuaisAgrupadas = $categoriasIndividuais
+            ->groupBy(function ($categoria) {
+                return $categoria->idade_min . '-' . $categoria->idade_max;
+            })
+            ->map(function ($grupo) {
+                $primeira = $grupo->first();
+
+                return [
+                    'label' => $this->formatarFaixaEtaria($primeira->idade_min, $primeira->idade_max),
+                    'categorias' => $grupo->sortBy([
+                        ['tipo', 'asc'],
+                        ['sexo', 'asc'],
+                        ['faixa_inicial', 'asc'],
+                    ])->values(),
+                ];
+            });
 
         return view('inscricoes.publica', [
-            'categoriasAgrupadas' => $categoriasAgrupadas,
+            'categoriasIndividuaisAgrupadas' => $categoriasIndividuaisAgrupadas,
+            'categoriasEquipe' => $categoriasEquipe,
             'faixas' => $this->faixas,
         ]);
     }
@@ -79,9 +91,63 @@ class InscricaoController extends Controller
         ]);
 
         $categoriasInput = $request->input('categorias', []);
-        $atletasParaSalvar = [];
+        $equipesInput = $request->input('equipes', []);
 
+        $atletasParaSalvar = [];
+        $equipesParaSalvar = [];
+
+        /*
+    |--------------------------------------------------------------------------
+    | Monta equipes para salvar
+    |--------------------------------------------------------------------------
+    */
+        foreach ($equipesInput as $categoriaId => $dadosEquipe) {
+            $categoria = Categoria::find($categoriaId);
+
+            if (!$categoria || $categoria->tipo_disputa !== 'equipe') {
+                continue;
+            }
+
+            $nomesBrutos = $dadosEquipe['nomes_atletas'] ?? '';
+
+            $nomesArray = collect(preg_split('/\r\n|\r|\n/', $nomesBrutos))
+                ->map(fn($nome) => trim($nome))
+                ->filter()
+                ->values()
+                ->toArray();
+
+            if (count($nomesArray) === 0) {
+                continue;
+            }
+
+            $quantidade = count($nomesArray);
+
+            if ($quantidade < $categoria->min_atletas_equipe || $quantidade > $categoria->max_atletas_equipe) {
+                throw ValidationException::withMessages([
+                    "equipes.$categoriaId.nomes_atletas" =>
+                    "A categoria {$categoria->nome} exige entre {$categoria->min_atletas_equipe} e {$categoria->max_atletas_equipe} atletas.",
+                ]);
+            }
+
+            $equipesParaSalvar[] = [
+                'categoria_id' => (int) $categoriaId,
+                'nomes_atletas' => implode(PHP_EOL, $nomesArray),
+                'quantidade_atletas' => $quantidade,
+            ];
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Monta atletas individuais para salvar
+    |--------------------------------------------------------------------------
+    */
         foreach ($categoriasInput as $categoriaId => $dadosCategoria) {
+            $categoria = Categoria::find($categoriaId);
+
+            if (!$categoria || $categoria->tipo_disputa !== 'individual') {
+                continue;
+            }
+
             if (empty($dadosCategoria['atletas']) || !is_array($dadosCategoria['atletas'])) {
                 continue;
             }
@@ -106,12 +172,22 @@ class InscricaoController extends Controller
             }
         }
 
-        if (count($atletasParaSalvar) === 0) {
+        /*
+    |--------------------------------------------------------------------------
+    | Deve existir pelo menos um atleta individual ou uma equipe
+    |--------------------------------------------------------------------------
+    */
+        if (count($atletasParaSalvar) === 0 && count($equipesParaSalvar) === 0) {
             throw ValidationException::withMessages([
-                'categorias' => 'Adicione pelo menos um atleta em alguma categoria.',
+                'categorias' => 'Adicione pelo menos um atleta individual ou uma equipe.',
             ]);
         }
 
+        /*
+    |--------------------------------------------------------------------------
+    | Validação dos atletas individuais
+    |--------------------------------------------------------------------------
+    */
         foreach ($atletasParaSalvar as $index => $atleta) {
             $validator = validator($atleta, [
                 'categoria_id' => ['required', 'exists:categorias,id'],
@@ -136,6 +212,8 @@ class InscricaoController extends Controller
         try {
             $comprovantePath = $request->file('comprovante')->store('comprovantes', 'public');
 
+            $totalAtletas = count($atletasParaSalvar) + collect($equipesParaSalvar)->sum('quantidade_atletas');
+
             $inscricao = Inscricao::create([
                 'dojo_nome' => $request->dojo_nome,
                 'sensei_nome' => $request->sensei_nome,
@@ -143,10 +221,10 @@ class InscricaoController extends Controller
                 'email' => $request->email,
                 'comprovante' => $comprovantePath,
                 'token_edicao' => Str::random(64),
-                'edicao_liberada' => true,
+                'edicao_liberada' => 1,
                 'edicao_ate' => now()->addDays(30),
                 'status' => 'pendente',
-                'total_atletas' => count($atletasParaSalvar),
+                'total_atletas' => $totalAtletas,
                 'observacoes' => null,
             ]);
 
@@ -155,6 +233,11 @@ class InscricaoController extends Controller
                 'nome_original' => $request->file('comprovante')->getClientOriginalName(),
             ]);
 
+            /*
+        |--------------------------------------------------------------------------
+        | Salva atletas individuais
+        |--------------------------------------------------------------------------
+        */
             foreach ($atletasParaSalvar as $atletaData) {
                 $categoria = Categoria::findOrFail($atletaData['categoria_id']);
 
@@ -167,6 +250,20 @@ class InscricaoController extends Controller
                     'data_nascimento' => $atletaData['data_nascimento'],
                     'sexo' => $atletaData['sexo'],
                     'faixa' => $atletaData['faixa'],
+                ]);
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | Salva equipes
+        |--------------------------------------------------------------------------
+        */
+            foreach ($equipesParaSalvar as $equipeData) {
+                Equipe::create([
+                    'inscricao_id' => $inscricao->id,
+                    'categoria_id' => $equipeData['categoria_id'],
+                    'nomes_atletas' => $equipeData['nomes_atletas'],
+                    'quantidade_atletas' => $equipeData['quantidade_atletas'],
                 ]);
             }
 
@@ -201,7 +298,6 @@ class InscricaoController extends Controller
             return back()
                 ->withInput()
                 ->with('error', 'Não foi possível concluir a inscrição. Tente novamente.');
-
         }
     }
 
@@ -278,6 +374,7 @@ class InscricaoController extends Controller
         $inscricao = Inscricao::with([
             'comprovantes',
             'atletas.categoria',
+            'equipes.categoria',
         ])->findOrFail($id);
 
         if ($inscricao->token_edicao !== $token) {
@@ -293,33 +390,46 @@ class InscricaoController extends Controller
         }
 
         $categorias = Categoria::where('ativo', true)
+            ->orderBy('tipo_disputa')
             ->orderBy('idade_min')
             ->orderBy('idade_max')
             ->orderBy('tipo')
             ->orderBy('sexo')
             ->get();
 
-        $categoriasAgrupadas = $categorias->groupBy(function ($categoria) {
-            return $categoria->idade_min . '-' . $categoria->idade_max;
-        })->map(function ($grupo) {
-            $primeira = $grupo->first();
+        $categoriasIndividuais = $categorias
+            ->where('tipo_disputa', 'individual');
 
-            return [
-                'label' => $this->formatarFaixaEtaria($primeira->idade_min, $primeira->idade_max),
-                'categorias' => $grupo->sortBy([
-                    ['tipo', 'asc'],
-                    ['sexo', 'asc'],
-                    ['faixa_inicial', 'asc'],
-                ])->values(),
-            ];
-        });
+        $categoriasEquipe = $categorias
+            ->where('tipo_disputa', 'equipe')
+            ->values();
+
+        $categoriasIndividuaisAgrupadas = $categoriasIndividuais
+            ->groupBy(function ($categoria) {
+                return $categoria->idade_min . '-' . $categoria->idade_max;
+            })
+            ->map(function ($grupo) {
+                $primeira = $grupo->first();
+
+                return [
+                    'label' => $this->formatarFaixaEtaria($primeira->idade_min, $primeira->idade_max),
+                    'categorias' => $grupo->sortBy([
+                        ['tipo', 'asc'],
+                        ['sexo', 'asc'],
+                        ['faixa_inicial', 'asc'],
+                    ])->values(),
+                ];
+            });
 
         $atletasPorCategoria = $inscricao->atletas->groupBy('categoria_id');
+        $equipesPorCategoria = $inscricao->equipes->groupBy('categoria_id');
 
         return view('inscricoes.editar-publica', [
             'inscricao' => $inscricao,
-            'categoriasAgrupadas' => $categoriasAgrupadas,
+            'categoriasIndividuaisAgrupadas' => $categoriasIndividuaisAgrupadas,
+            'categoriasEquipe' => $categoriasEquipe,
             'atletasPorCategoria' => $atletasPorCategoria,
+            'equipesPorCategoria' => $equipesPorCategoria,
             'faixas' => $this->faixas,
             'token' => $token,
         ]);
@@ -327,7 +437,7 @@ class InscricaoController extends Controller
 
     public function updateByToken(Request $request, $id, $token)
     {
-        $inscricao = Inscricao::with(['atletas', 'comprovantes'])->findOrFail($id);
+        $inscricao = Inscricao::with(['atletas', 'equipes', 'comprovantes'])->findOrFail($id);
 
         if ($inscricao->token_edicao !== $token) {
             abort(403, 'Link de edição inválido.');
@@ -348,7 +458,10 @@ class InscricaoController extends Controller
         ]);
 
         $categoriasInput = $request->input('categorias', []);
+        $equipesInput = $request->input('equipes', []);
+
         $atletasParaSalvar = [];
+        $equipesParaSalvar = [];
 
         foreach ($categoriasInput as $categoriaId => $dadosCategoria) {
             if (empty($dadosCategoria['atletas']) || !is_array($dadosCategoria['atletas'])) {
@@ -375,10 +488,31 @@ class InscricaoController extends Controller
             }
         }
 
-        if (count($atletasParaSalvar) === 0) {
+        foreach ($equipesInput as $categoriaId => $dadosEquipe) {
+            $nomesAtletas = trim($dadosEquipe['nomes_atletas'] ?? '');
+
+            if ($nomesAtletas === '') {
+                continue;
+            }
+
+            $linhas = preg_split('/\r\n|\r|\n/', $nomesAtletas);
+            $linhas = array_values(array_filter(array_map('trim', $linhas)));
+
+            if (count($linhas) === 0) {
+                continue;
+            }
+
+            $equipesParaSalvar[] = [
+                'categoria_id' => (int) $categoriaId,
+                'nomes_atletas' => implode("\n", $linhas),
+                'quantidade_atletas' => count($linhas),
+            ];
+        }
+
+        if (count($atletasParaSalvar) === 0 && count($equipesParaSalvar) === 0) {
             return back()
                 ->withInput()
-                ->withErrors(['categorias' => 'A inscrição deve ter pelo menos um atleta.']);
+                ->withErrors(['categorias' => 'A inscrição deve ter pelo menos um atleta ou uma equipe.']);
         }
 
         foreach ($atletasParaSalvar as $index => $atleta) {
@@ -400,16 +534,58 @@ class InscricaoController extends Controller
             }
         }
 
+        foreach ($equipesParaSalvar as $index => $equipe) {
+            $validator = validator($equipe, [
+                'categoria_id' => ['required', 'exists:categorias,id'],
+                'nomes_atletas' => ['required', 'string'],
+                'quantidade_atletas' => ['required', 'integer', 'min:1'],
+            ], [], [
+                'nomes_atletas' => 'nomes dos atletas da equipe #' . ($index + 1),
+                'quantidade_atletas' => 'quantidade de atletas da equipe #' . ($index + 1),
+            ]);
+
+            if ($validator->fails()) {
+                return back()->withInput()->withErrors($validator);
+            }
+
+            $categoria = Categoria::findOrFail($equipe['categoria_id']);
+
+            if ($categoria->tipo_disputa !== 'equipe') {
+                return back()
+                    ->withInput()
+                    ->withErrors(['equipes' => 'Uma das categorias de equipe é inválida.']);
+            }
+
+            if ($categoria->min_atletas_equipe && $equipe['quantidade_atletas'] < $categoria->min_atletas_equipe) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'equipes' => "A equipe da categoria {$categoria->nome} deve ter no mínimo {$categoria->min_atletas_equipe} atleta(s)."
+                    ]);
+            }
+
+            if ($categoria->max_atletas_equipe && $equipe['quantidade_atletas'] > $categoria->max_atletas_equipe) {
+                return back()
+                    ->withInput()
+                    ->withErrors([
+                        'equipes' => "A equipe da categoria {$categoria->nome} deve ter no máximo {$categoria->max_atletas_equipe} atleta(s)."
+                    ]);
+            }
+        }
+
         DB::beginTransaction();
 
         try {
+            $totalAtletas = count($atletasParaSalvar) + collect($equipesParaSalvar)->sum('quantidade_atletas');
+
             $inscricao->update([
                 'telefone' => $request->telefone,
                 'email' => $request->email,
-                'total_atletas' => count($atletasParaSalvar),
+                'total_atletas' => $totalAtletas,
             ]);
 
             $inscricao->atletas()->delete();
+            $inscricao->equipes()->delete();
 
             foreach ($atletasParaSalvar as $atletaData) {
                 $categoria = Categoria::findOrFail($atletaData['categoria_id']);
@@ -426,6 +602,14 @@ class InscricaoController extends Controller
                 ]);
             }
 
+            foreach ($equipesParaSalvar as $equipeData) {
+                $inscricao->equipes()->create([
+                    'categoria_id' => $equipeData['categoria_id'],
+                    'nomes_atletas' => $equipeData['nomes_atletas'],
+                    'quantidade_atletas' => $equipeData['quantidade_atletas'],
+                ]);
+            }
+
             if ($request->hasFile('novo_comprovante')) {
                 $novoComprovantePath = $request->file('novo_comprovante')->store('comprovantes', 'public');
 
@@ -438,7 +622,10 @@ class InscricaoController extends Controller
             DB::commit();
 
             return redirect()
-                ->route('inscricao.edit.token', ['id' => $inscricao->id, 'token' => $inscricao->token_edicao])
+                ->route('inscricao.edit.token', [
+                    'id' => $inscricao->id,
+                    'token' => $inscricao->token_edicao,
+                ])
                 ->with('success', 'Inscrição atualizada com sucesso.');
         } catch (\Throwable $e) {
             DB::rollBack();

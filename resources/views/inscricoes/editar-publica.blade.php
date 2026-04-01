@@ -22,10 +22,53 @@
         <div class="container pb-5">
             @include('inscricoes.partials.alertas')
 
+            @php
+                $categoriasOld = old('categorias');
+                $equipesOld = old('equipes');
+
+                if (!$categoriasOld && isset($atletasPorCategoria)) {
+                    $categoriasOld = $atletasPorCategoria
+                        ->mapWithKeys(function ($grupo, $categoriaId) {
+                            return [
+                                $categoriaId => [
+                                    'atletas' => $grupo
+                                        ->map(function ($atleta) {
+                                            return [
+                                                'nome_completo' => $atleta->nome_completo,
+                                                'data_nascimento' => $atleta->data_nascimento,
+                                                'sexo' => $atleta->sexo,
+                                                'faixa' => $atleta->faixa,
+                                            ];
+                                        })
+                                        ->values()
+                                        ->toArray(),
+                                ],
+                            ];
+                        })
+                        ->toArray();
+                }
+
+                if (!$equipesOld && isset($equipesPorCategoria)) {
+                    $equipesOld = $equipesPorCategoria
+                        ->mapWithKeys(function ($grupo, $categoriaId) {
+                            $equipe = $grupo->first();
+
+                            return [
+                                $categoriaId => [
+                                    'nomes_atletas' => $equipe->nomes_atletas ?? '',
+                                ],
+                            ];
+                        })
+                        ->toArray();
+                }
+
+                $categoriasOld = $categoriasOld ?? [];
+                $equipesOld = $equipesOld ?? [];
+            @endphp
+
             <form method="POST"
                 action="{{ route('inscricao.update.token', ['id' => $inscricao->id, 'token' => $token]) }}"
-                enctype="multipart/form-data"
-                id="form-inscricao">
+                enctype="multipart/form-data" id="form-inscricao">
                 @csrf
                 @method('PUT')
 
@@ -38,12 +81,14 @@
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label class="form-label">Nome do dojo</label>
-                                        <input type="text" class="form-control" value="{{ $inscricao->dojo_nome }}" disabled>
+                                        <input type="text" class="form-control" value="{{ $inscricao->dojo_nome }}"
+                                            disabled>
                                     </div>
 
                                     <div class="col-md-6">
                                         <label class="form-label">Nome do sensei / responsável</label>
-                                        <input type="text" class="form-control" value="{{ $inscricao->sensei_nome }}" disabled>
+                                        <input type="text" class="form-control" value="{{ $inscricao->sensei_nome }}"
+                                            disabled>
                                     </div>
 
                                     <div class="col-md-6">
@@ -63,7 +108,8 @@
                                         <input type="file" name="novo_comprovante" class="form-control"
                                             accept=".pdf,.jpg,.jpeg,.png">
                                         <div class="form-text">
-                                            Os comprovantes antigos serão mantidos. Você pode anexar apenas comprovantes complementares.
+                                            Os comprovantes antigos serão mantidos. Você pode anexar apenas comprovantes
+                                            complementares.
                                         </div>
                                     </div>
 
@@ -73,7 +119,8 @@
                                             @forelse($inscricao->comprovantes as $index => $comprovante)
                                                 <div class="border rounded p-2">
                                                     <div class="small text-muted mb-1">
-                                                        Comprovante {{ $index + 1 }} • enviado em {{ $comprovante->created_at->format('d/m/Y H:i') }}
+                                                        Comprovante {{ $index + 1 }} • enviado em
+                                                        {{ $comprovante->created_at->format('d/m/Y H:i') }}
                                                     </div>
 
                                                     <div class="small mb-2">
@@ -81,8 +128,7 @@
                                                     </div>
 
                                                     <a href="{{ asset('storage/' . $comprovante->arquivo) }}"
-                                                       target="_blank"
-                                                       class="btn btn-sm btn-outline-dark">
+                                                        target="_blank" class="btn btn-sm btn-outline-dark">
                                                         Ver arquivo
                                                     </a>
                                                 </div>
@@ -95,7 +141,11 @@
                             </div>
                         </div>
 
-                        @include('inscricoes.partials.accordion-idades-edicao')
+                        @include('inscricoes.partials.secoes-categorias', [
+                            'categoriasIndividuaisAgrupadas' => $categoriasIndividuaisAgrupadas,
+                            'categoriasEquipe' => $categoriasEquipe,
+                            'equipesOld' => $equipesOld,
+                        ])
                     </div>
 
                     <div class="col-lg-4">
@@ -118,30 +168,10 @@
 
     @include('inscricoes.partials.template-atleta')
 
-    @php
-        $categoriasOld = old('categorias');
-
-        if (!$categoriasOld) {
-            $categoriasOld = $atletasPorCategoria
-                ->map(function ($grupo) {
-                    return [
-                        'atletas' => $grupo->map(function ($atleta) {
-                            return [
-                                'nome_completo' => $atleta->nome_completo,
-                                'data_nascimento' => $atleta->data_nascimento,
-                                'sexo' => $atleta->sexo,
-                                'faixa' => $atleta->faixa,
-                            ];
-                        })->values()->toArray(),
-                    ];
-                })
-                ->toArray();
-        }
-    @endphp
-
     <script>
         window.inscricaoConfig = {
             categoriasOld: @json($categoriasOld),
+            equipesOld: @json($equipesOld),
             faixas: @json($faixas),
         };
     </script>

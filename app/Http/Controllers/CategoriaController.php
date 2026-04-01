@@ -33,6 +33,11 @@ class CategoriaController extends Controller
         'master' => 'Master'
     ];
 
+    private array $tiposDisputa = [
+        'individual' => 'Individual',
+        'equipe' => 'Equipe',
+    ];
+
     public function index()
     {
         $categorias = Categoria::orderBy('tipo')
@@ -53,6 +58,7 @@ class CategoriaController extends Controller
             'faixas' => $this->faixas,
             'tipos' => $this->tipos,
             'especiais' => $this->especiais,
+            'tiposDisputa' => $this->tiposDisputa,
         ]);
     }
 
@@ -61,8 +67,30 @@ class CategoriaController extends Controller
 
         $dados = $this->validarCategoria($request);
 
+        // if ($dados['tipo_disputa'] === 'equipe') {
+        //     if (empty($dados['min_atletas_equipe']) || empty($dados['max_atletas_equipe'])) {
+        //         return back()
+        //             ->withInput()
+        //             ->withErrors([
+        //                 'min_atletas_equipe' => 'Informe o mínimo e o máximo de atletas para categoria de equipe.',
+        //             ]);
+        //     }
+
+        //     if ($dados['min_atletas_equipe'] > $dados['max_atletas_equipe']) {
+        //         return back()
+        //             ->withInput()
+        //             ->withErrors([
+        //                 'max_atletas_equipe' => 'O máximo de atletas deve ser maior ou igual ao mínimo.',
+        //             ]);
+        //     }
+        // } else {
+        //     $dados['min_atletas_equipe'] = null;
+        //     $dados['max_atletas_equipe'] = null;
+        // }
+
         Categoria::create([
             'tipo' => $dados['tipo'],
+            'tipo_disputa' => $dados['tipo_disputa'],
             'nome' => $dados['nome'],
             'idade_min' => $dados['idade_min'],
             'idade_max' => $dados['idade_max'],
@@ -70,6 +98,8 @@ class CategoriaController extends Controller
             'faixa_inicial' => $dados['faixa_inicial'],
             'faixa_final' => $dados['faixa_final'],
             'especial' => $dados['especial'] ?: null,
+            'min_atletas_equipe' => 3,
+            'max_atletas_equipe' => 4,
             'ativo' => $request->boolean('ativo'),
         ]);
 
@@ -84,7 +114,7 @@ class CategoriaController extends Controller
             'faixas' => $this->faixas,
             'tipos' => $this->tipos,
             'especiais' => $this->especiais,
-
+            'tiposDisputa' => $this->tiposDisputa,
         ]);
     }
 
@@ -93,8 +123,30 @@ class CategoriaController extends Controller
 
         $dados = $this->validarCategoria($request);
 
+        // if ($dados['tipo_disputa'] === 'equipe') {
+        //     if (empty($dados['min_atletas_equipe']) || empty($dados['max_atletas_equipe'])) {
+        //         return back()
+        //             ->withInput()
+        //             ->withErrors([
+        //                 'min_atletas_equipe' => 'Informe o mínimo e o máximo de atletas para categoria de equipe.',
+        //             ]);
+        //     }
+
+        //     if ($dados['min_atletas_equipe'] > $dados['max_atletas_equipe']) {
+        //         return back()
+        //             ->withInput()
+        //             ->withErrors([
+        //                 'max_atletas_equipe' => 'O máximo de atletas deve ser maior ou igual ao mínimo.',
+        //             ]);
+        //     }
+        // } else {
+        //     $dados['min_atletas_equipe'] = null;
+        //     $dados['max_atletas_equipe'] = null;
+        // }
+
         $categoria->update([
             'tipo' => $dados['tipo'],
+            'tipo_disputa' => $dados['tipo_disputa'],
             'nome' => $dados['nome'],
             'idade_min' => $dados['idade_min'],
             'idade_max' => $dados['idade_max'],
@@ -102,6 +154,9 @@ class CategoriaController extends Controller
             'faixa_inicial' => $dados['faixa_inicial'],
             'faixa_final' => $dados['faixa_final'],
             'especial' => $dados['especial'] ?? null,
+            'min_atletas_equipe' => 3,
+            'max_atletas_equipe' => 4,
+            'tipo_disputa' => $dados['tipo_disputa'],
             'ativo' => $request->boolean('ativo'),
         ]);
 
@@ -120,14 +175,18 @@ class CategoriaController extends Controller
     private function validarCategoria(Request $request): array
     {
         $dados = $request->validate([
-            'tipo' => ['required', Rule::in(array_keys($this->tipos))],
             'nome' => ['required', 'string', 'max:255'],
-            'idade_min' => ['required', 'integer', 'min:0', 'max:99'],
-            'idade_max' => ['required', 'integer', 'min:0', 'max:99', 'gte:idade_min'],
-            'sexo' => ['required', Rule::in(['M', 'F'])],
-            'faixa_inicial' => ['required', Rule::in($this->faixas)],
-            'faixa_final' => ['required', Rule::in($this->faixas)],
-            'especial' => ['nullable', Rule::in(array_keys($this->especiais))],
+            'tipo' => ['required', 'string'],
+            'tipo_disputa' => ['required', 'in:individual,equipe'],
+            'idade_min' => ['required', 'integer', 'min:0'],
+            'idade_max' => ['required', 'integer', 'min:0', 'gte:idade_min'],
+            'sexo' => ['required', 'in:M,F'],
+            'faixa_inicial' => ['required', 'string'],
+            'faixa_final' => ['required', 'string'],
+            'especial' => ['nullable', 'string'],
+            // 'min_atletas_equipe' => ['nullable', 'integer', 'min:1'],
+            // 'max_atletas_equipe' => ['nullable', 'integer', 'min:1'],
+            'ativo' => ['nullable', 'boolean'],
         ]);
 
         $ordem = array_flip($this->faixas);
